@@ -1,0 +1,76 @@
+defaults:
+  - _self_
+
+vars:
+  dir: ${oc.env:REPO_ROOT}
+  task: ${oc.env:TASK}
+  log_dir: ${oc.env:REPO_ROOT}/logs
+  ckpt_dir: ${oc.env:REPO_ROOT}/checkpoints/${vars.task}
+
+data:
+  train_files: ["${vars.dir}/${vars.task}/train.parquet"]
+  val_files: ["${vars.dir}/${vars.task}/test.parquet"]
+  filter_overlong_prompts: True
+  max_prompt_length: 2048
+  max_response_length: 20480
+  shuffle: True
+  trust_remote_code: True
+  apply_chat_template_kwargs: {"enable_thinking": false}
+
+actor_rollout_ref:
+  actor:
+    ppo_micro_batch_size_per_gpu: 1
+    ppo_max_token_len_per_gpu: ${max_model_len}
+    clip_ratio_high: 0.28
+    use_kl_loss: False
+    checkpoint:
+      save_contents: ['hf_model']
+  model:
+    path: Qwen/Qwen3-8B
+    trust_remote_code: True
+  ref:
+    log_prob_micro_batch_size_per_gpu: 1
+  rollout:
+    name: vllm
+    gpu_memory_utilization: 0.55
+    log_prob_micro_batch_size_per_gpu: 1
+    max_num_batched_tokens: ${max_model_len}
+    max_model_len: ${max_model_len}
+    val_kwargs:
+      top_p: 0.95
+      temperature: 0.6
+      n: 4
+      do_sample: True
+
+algorithm:
+  use_kl_in_reward: False
+
+custom_reward_function:
+  path: ${oc.env:REPO_ROOT}/verl/utils/reward_score/feedback/__init__.py
+
+critic:
+  model:
+    path: Qwen/Qwen3-8B
+
+reward_model:
+  use_reward_loop: False # disables experimental reward manager (which gives lower scores)
+
+trainer:
+  project_name: SEPO-${oc.env:USER}
+  group_name: ${oc.env:EXPERIMENT}
+  experiment_name: ${oc.env:EXPERIMENT}
+  n_gpus_per_node: 8
+  nnodes: 1
+  save_freq: 0       # set >0 to save every N steps; 0 = disabled
+  save_best: true   # save checkpoint whenever val-core score improves
+  save_latest: true # save checkpoint after every val (overwrites previous latest)
+  test_freq: 5
+  max_actor_ckpt_to_keep: 1
+  total_epochs: 30
+  default_local_dir: ${vars.ckpt_dir}/${trainer.experiment_name}  # experiment_name needs to be a unique identifier
+  logger: ["console", "file"]
+  # Per-step val generations dump (default OFF — set to True in a script to enable).
+  # When enabled, writes one JSONL file per (step, data_source) to val_generations_dir
+  # (default: $VERL_FILE_LOGGER_ROOT/{experiment_name}_val_generations/).
+  save_val_generations: False
+  val_generations_dir: null

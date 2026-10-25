@@ -1,0 +1,72 @@
+defaults:
+  - ppo_trainer
+  - user
+  - _self_
+
+# SEPO: Teacher-guided Self-Distillation Policy Optimization
+#
+# Key features:
+#   - loss_mode: sepo
+#   - Teacher gold pool: label-conditioned teacher rollouts (with student-rollout fallback)
+#   - Per-sample distillation weight controlled by weight_mode
+#
+# MAX_PROMPT_LENGTH=2048
+# MAX_RESPONSE_LENGTH=16384
+# MAX_REPROMPT_LEN=12288
+# MAX_MODEL_LEN ~ 30720
+max_model_len: 22528
+
+actor_rollout_ref:
+  actor:
+    ppo_mini_batch_size: 32
+    policy_loss:
+      loss_mode: sepo
+    self_distillation:
+      max_reprompt_len: 12288
+      is_clip: 2.0
+      alpha: 0.5               # Jensen-Shannon divergence (0=fwd KL, 1=rev KL)
+      distillation_topk: 100
+      teacher_update_rate: 0.05
+      success_reward_threshold: 1.0
+
+      # Reprompt template for teacher context: shows gold solution to the model
+      reprompt_template: "{prompt}\n\n##\nHere is a reference solution:\n{solution}\n##\n\nNow, solve the problem on your own."
+      reprompt_template_tooluse: "{prompt}\n\n##\nHere is a reference solution:\n{solution}\n##\n\nNow, solve the problem on your own."
+
+      solution_template: "{successful_previous_attempt}"
+      feedback_template: ""
+
+      # --- SEPO-specific ---
+      # "conditional" : always use label-conditioned teacher generation
+      teacher_rollout_source: conditional
+      reuse_student_rollout: false
+      n_teacher_rollout: 4
+      n_conditional_fallback: 4
+      filter_conditional_by_reward: true  # verify conditional rollouts with reward before adding to gold pool
+
+      # Matching: each student rollout is paired with one teacher gold solution
+      matching_strategy: random     # "random" | "all_same"
+
+      # Distillation weight per student rollout
+      # "wrong_only": w=0 for already-correct student, w=1 for wrong
+      # "all_equal" : w=1 for all samples with a gold solution
+      # "adv_negative" / "adv_abs": continuous advantage-based weights
+      weight_mode: wrong_only
+
+
+    optim:
+      lr: 1e-5
+
+  rollout:
+    n: 8
+    calculate_log_probs: true
+
+algorithm:
+  adv_estimator: grpo
+  norm_adv_by_std_in_grpo: false
+  rollout_correction:
+    rollout_is: token
+    rollout_is_threshold: 2.0
+
+data:
+  train_batch_size: 32

@@ -111,6 +111,15 @@ pip install -r requirements_sglang.txt
 If you find this work useful, please kindly star the repo and and cite the paper below. For questions, contact wenhangshi@ruc.edu.cn, or open an issue. Thank you!
 
 ```bibtex
+@misc{shi2026sepo,
+  title={Self-Evolution Reasoner: Continuous Optimization via Policy-Intrinsic Exploration and Exploitation},
+  author={Wenhang Shi and Yiren Chen and Zhe Zhao and Jinhao Dong and Wei Lu and Xiaoyong Du},
+  year={2026},
+  eprint={2610.34137},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2610.34137}
+}
 ```
 
 ## Acknowledgments
